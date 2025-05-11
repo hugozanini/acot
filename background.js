@@ -1,13 +1,13 @@
 const originalIcons = {
-  '16': 'icons/arctangent.svg',
-  '48': 'icons/arctangent.svg',
-  '128': 'icons/arctangent.svg'
+  '16': 'icons/icon16.png',
+  '48': 'icons/icon48.png',
+  '128': 'icons/icon128.png'
 };
 
 const animatedIcons = {
-  '16': 'icons/animated-icon16.svg',
-  '48': 'icons/animated-icon48.svg',
-  '128': 'icons/animated-icon128.svg'
+  '16': 'icons/icon16.png',
+  '48': 'icons/icon48.png',
+  '128': 'icons/icon128.png'
 };
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -232,21 +232,44 @@ async function summarizeWithOllama(endpoint, commentText, promptTemplate) {
   }
 }
 
+// Add this event listener to handle settings updates
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    if (changes.configVerified || changes.geminiApiKey || changes.apiProvider || 
+        changes.ollamaEndpoint || changes.geminiModel || changes.openaiModel) {
+      console.log('Extension settings changed, notifying content scripts');
+      try {
+        chrome.tabs.query({ url: "https://docs.google.com/document/*" }, (tabs) => {
+          tabs.forEach(tab => {
+            try {
+              chrome.tabs.sendMessage(tab.id, { 
+                action: 'settingsChanged',
+                message: 'Extension settings have been updated.'
+              });
+            } catch (err) {
+              console.error('Error sending settings changed message to tab:', err);
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Error notifying content scripts:', err);
+      }
+    }
+  }
+});
+
+// Modify this part to avoid the icon animation issue
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url && tab.url.includes('docs.google.com/document')) {
-    if (chrome.action && chrome.action.setIcon) {
-      chrome.action.setIcon({
-        tabId: tabId,
-        path: animatedIcons
-      });
-      
-      setTimeout(() => {
-        chrome.action.setIcon({
-          tabId: tabId,
-          path: originalIcons
-        });
-      }, 5000);
-    }
+    // Temporarily disable icon animation to avoid errors
+    console.log('Google Docs page loaded, but not changing icon to avoid errors');
+    // Don't attempt to change the icon for now
+    /*
+    chrome.action.setIcon({
+      tabId: tabId,
+      path: animatedIcons
+    });
+    */
   }
 });
 
@@ -336,30 +359,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({status: 'received and processing'});
   }
   return true; // Required for async sendResponse
-});
-
-// Add this event listener to handle settings updates
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local') {
-    if (changes.configVerified || changes.geminiApiKey || changes.apiProvider || 
-        changes.ollamaEndpoint || changes.geminiModel || changes.openaiModel) {
-      console.log('Extension settings changed, notifying content scripts');
-      try {
-        chrome.tabs.query({ url: "https://docs.google.com/document/*" }, (tabs) => {
-          tabs.forEach(tab => {
-            try {
-              chrome.tabs.sendMessage(tab.id, { 
-                action: 'settingsChanged',
-                message: 'Extension settings have been updated.'
-              });
-            } catch (err) {
-              console.error('Error sending settings changed message to tab:', err);
-            }
-          });
-        });
-      } catch (err) {
-        console.error('Error notifying content scripts:', err);
-      }
-    }
-  }
 });
