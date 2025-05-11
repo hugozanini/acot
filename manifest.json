@@ -4,15 +4,15 @@
   "version": "1.0.0",
   "description": "AI Comments Tool for summarizing Google Docs comment threads with Gemini or Ollama",
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/arctangent.svg",
+    "48": "icons/arctangent.svg",
+    "128": "icons/arctangent.svg"
   },
   "action": {
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "icons/arctangent.svg",
+      "48": "icons/arctangent.svg",
+      "128": "icons/arctangent.svg"
     }
   },
   "permissions": [
@@ -40,4 +40,4 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   }
-}
+} 

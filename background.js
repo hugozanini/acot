@@ -1,9 +1,7 @@
-
-
 const originalIcons = {
-  '16': 'icons/icon16.svg',
-  '48': 'icons/icon48.svg',
-  '128': 'icons/icon128.svg'
+  '16': 'icons/arctangent.svg',
+  '48': 'icons/arctangent.svg',
+  '128': 'icons/arctangent.svg'
 };
 
 const animatedIcons = {
