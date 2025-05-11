@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" fill="white"/>
+  <path d="M10,64 Q40,10 64,64 T118,64" stroke="#4285f4" fill="none" stroke-width="6" stroke-linecap="round">
+    <animate attributeName="d" 
+             values="M10,64 Q40,10 64,64 T118,64;
+                     M10,64 Q40,118 64,64 T118,64;
+                     M10,64 Q40,10 64,64 T118,64" 
+             dur="1.5s" 
+             repeatCount="indefinite"/>
+  </path>
+</svg>
