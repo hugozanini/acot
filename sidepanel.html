@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ACOT Side Panel</title>
+  <style>
+    /* Base Styles */
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      color: #202124;
+      background-color: #ffffff;
+      line-height: 1.5;
+      position: relative;
+      min-height: 95vh;
+    }
+    
+    /* Typography */
+    h1 {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      color: #202124;
+      display: flex;
+      align-items: center;
+    }
+    
+    h1::before {
+      content: "";
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      background-image: url('data:image/svg+xml;utf8,<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="20" fill="white"/><path d="M1,10 Q5,1 10,10 T19,10" stroke="black" fill="none" stroke-width="1.5"/></svg>');
+      background-repeat: no-repeat;
+    }
+    
+    h2 {
+      font-size: 16px;
+      font-weight: 500;
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #202124;
+    }
+    
+    /* API Key Section */
+    .api-key-section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      display: none; /* Hidden by default, shown in settings */
+    }
+    
+    .api-key-input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    
+    .api-key-input:focus {
+      outline: none;
+      border-color: #4285f4;
+      box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+    }
+    
+    .save-key-button {
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    
+    .save-key-button:hover {
+      background-color: #3367d6;
+    }
+    
+    .save-key-button:active {
+      background-color: #2a56c6;
+    }
+    
+    /* Prompt Template Section */
+    .prompt-template-section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      display: none; /* Hidden by default, shown in settings */
+    }
+    
+    .prompt-template-textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+      transition: border-color 0.2s;
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .prompt-template-textarea:focus {
+      outline: none;
+      border-color: #4285f4;
+      box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+    }
+    
+    .status-message {
+      margin-top: 10px;
+      font-size: 14px;
+      transition: opacity 0.3s;
+    }
+    
+    .success {
+      color: #0f9d58;
+    }
+    
+    .error {
+      color: #d93025;
+    }
+    
+    /* Summary Section */
+    .summary-section {
+      margin-top: 20px;
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .placeholder {
+      color: #5f6368;
+      font-style: italic;
+      margin-top: 20px;
+      text-align: center;
+      padding: 20px;
+      border: 1px dashed #dadce0;
+      border-radius: 4px;
+      background-color: #ffffff;
+    }
+    
+    .loading {
+      color: #4285f4;
+      font-style: italic;
+      text-align: center;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .loading::before {
+      content: "";
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      border: 2px solid #4285f4;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Summary Container */
+    .summary-container {
+      margin-top: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      background-color: #ffffff;
+    }
+    
+    .original-comment {
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #dadce0;
+    }
+    
+    .original-comment strong, .summary-result strong {
+      font-weight: 500;
+      color: #202124;
+    }
+    
+    .original-comment p {
+      margin: 8px 0 0;
+      font-size: 14px;
+      color: #5f6368;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    
+    .summary-result {
+      padding: 16px;
+      background-color: #ffffff;
+    }
+    
+    .summary-result p {
+      margin: 8px 0 0;
+      font-size: 14px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    
+    /* Error Container */
+    .error-container {
+      margin-top: 12px;
+      padding: 16px;
+      background-color: #fce8e6;
+      border: 1px solid #fad2cf;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .error-message {
+      margin: 0 0 8px;
+      font-weight: 500;
+      color: #d93025;
+    }
+    
+    /* Settings Icon */
+    .settings-icon {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      background-color: #4285f4;
+      border-radius: 50%;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+    }
+    
+    .settings-icon:hover {
+      background-color: #3367d6;
+    }
+    
+    .settings-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+    
+    /* Provider Selection */
+    .provider-selection {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 16px;
+    }
+    
+    .provider-config {
+      margin-bottom: 20px;
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .api-config-section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .model-select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    
+    .model-select:focus {
+      outline: none;
+      border-color: #4285f4;
+      box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+    }
+    
+    .action-button {
+      background-color: #34a853;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+      margin-bottom: 10px;
+    }
+    
+    .action-button:hover {
+      background-color: #2e8b57;
+    }
+    
+    .action-button:active {
+      background-color: #267349;
+    }
+    
+    /* OpenAI Model Input */
+    .openai-model-input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    
+    .openai-model-input:focus {
+      outline: none;
+      border-color: #4285f4;
+      box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+    }
+    
+    .openai-compatible-section {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f1f8ff;
+      border-radius: 4px;
+      border-left: 3px solid #4285f4;
+    }
+    
+    .openai-compatible-section h4 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #1a73e8;
+    }
+    
+    .openai-compatible-section p {
+      font-size: 12px;
+      color: #5f6368;
+      margin-top: 5px;
+      margin-bottom: 0;
+    }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 300px) {
+      body {
+        padding: 12px;
+      }
+      
+      .api-key-section, .summary-section, .prompt-template-section, .api-config-section, .provider-config {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>ACOT - AI Comments Tool</h1>
+  
+  <div class="api-config-section" id="apiConfigSection">
+    <h2>API Configuration</h2>
+    <div class="provider-selection">
+      <label>
+        <input type="radio" name="provider" value="gemini" checked> Gemini API
+      </label>
+      <label>
+        <input type="radio" name="provider" value="ollama"> Ollama (Local)
+      </label>
+    </div>
+    
+    <div id="geminiConfigSection" class="provider-config">
+      <h3>Gemini Settings</h3>
+      <input type="password" id="apiKeyInput" class="api-key-input" placeholder="Enter your Gemini API Key">
+      <button id="testGeminiButton" class="action-button">Test Connection</button>
+      <div id="modelSelectionSection" style="display: none;">
+        <h4>Select Model</h4>
+        <select id="modelSelect" class="model-select">
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+          <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+        </select>
+        <button id="saveGeminiConfigButton" class="save-key-button">Save Configuration</button>
+      </div>
+      <div id="geminiStatusMessage" class="status-message"></div>
+    </div>
+    
+    <div id="ollamaConfigSection" class="provider-config" style="display: none;">
+      <h3>Ollama Settings</h3>
+      <input type="text" id="ollamaEndpointInput" class="api-key-input" placeholder="Ollama API Endpoint (e.g., http://localhost:11434)">
+      <div id="openaiCompatibleSection" style="display: none; margin-top: 10px;">
+        <h4>OpenAI-Compatible Settings</h4>
+        <input type="text" id="openaiModelInput" class="api-key-input" placeholder="Model name (e.g., gpt-4)" value="gpt-4">
+        <p style="font-size: 12px; color: #5f6368; margin-top: 5px;">
+          For OpenAI-compatible endpoints (ending with /v1), specify the model name to use.
+        </p>
+      </div>
+      <button id="testOllamaButton" class="action-button">Test Connection</button>
+      <button id="saveOllamaConfigButton" class="save-key-button">Save Configuration</button>
+      <div id="ollamaStatusMessage" class="status-message"></div>
+    </div>
+  </div>
+  
+  <div class="summary-section" id="summarySection" style="display: none;">
+    <h2>Comment Summary</h2>
+    <div id="summaryContent" class="placeholder">
+      Click a comment in your Google Doc to see its summary.
+    </div>
+  </div>
+  
+  <div class="prompt-template-section" id="promptTemplateSection" style="display: none;">
+    <h2>Summary Prompt</h2>
+    <textarea id="promptTemplateInput" class="prompt-template-textarea" placeholder="Enter your custom prompt for summarizing comments"></textarea>
+    <button id="savePromptButton" class="save-key-button">Save Prompt</button>
+    <div id="promptStatusMessage" class="status-message"></div>
+  </div>
+  
+  <div class="settings-icon" id="settingsIcon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+      <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+    </svg>
+  </div>
+  
+  <script src="sidepanel.js"></script>
+</body>
+</html>
