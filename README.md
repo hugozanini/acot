@@ -2,7 +2,7 @@
 
 ACOT is a Chrome extension that enhances productivity in Google Docs by using AI to summarize comment threads. The extension provides instant AI-generated summaries in a convenient side panel.
 
-![ACOT Example](media/acot-example.png)
+<img src="media/acot-example.png" alt="ACOT Example" width="800">
 
 ## ✨ Features
 
