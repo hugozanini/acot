@@ -1,3 +1,57 @@
+let isExtensionReady = true;
+
+function sendMessageToBackground(message) {
+  return new Promise((resolve, reject) => {
+    if (!isExtensionReady) {
+      console.log('Extension not ready, reloading page...');
+      window.location.reload();
+      reject(new Error('Extension not ready'));
+      return;
+    }
+    
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Chrome runtime error:', chrome.runtime.lastError);
+          
+          if (chrome.runtime.lastError.message.includes('Extension context invalidated') || 
+              chrome.runtime.lastError.message.includes('Extension context was invalidated')) {
+            isExtensionReady = false;
+            console.log('Extension context invalidated, will reload on next action');
+            
+            const notification = document.createElement('div');
+            notification.textContent = 'Extension settings changed. Page will reload on next action.';
+            notification.style.position = 'fixed';
+            notification.style.top = '0';
+            notification.style.left = '0';
+            notification.style.right = '0';
+            notification.style.backgroundColor = '#4285f4';
+            notification.style.color = 'white';
+            notification.style.padding = '10px';
+            notification.style.textAlign = 'center';
+            notification.style.zIndex = '9999';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+              notification.remove();
+            }, 5000);
+            
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          
+          reject(chrome.runtime.lastError);
+          return;
+        }
+        resolve(response);
+      });
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      isExtensionReady = false;
+      reject(error);
+    }
+  });
+}
 
 console.log('ACOT Content Script loaded');
 
@@ -140,24 +194,22 @@ function attachEventListenersToComments() {
       if (!comment.dataset.acotListenerAdded) {
         comment.dataset.acotListenerAdded = 'true';
         
-        comment.addEventListener('click', (event) => {
+        comment.addEventListener('click', async (event) => {
           const commentText = extractCommentText(comment);
           console.log('Comment clicked through direct listener:', commentText);
           
           if (commentText) {
             try {
-              chrome.runtime.sendMessage(
-                { action: 'commentClicked', commentText: commentText },
-                (response) => {
-                  if (chrome.runtime.lastError) {
-                    console.error('Error sending message:', chrome.runtime.lastError);
-                    return;
-                  }
-                  console.log('Response from background:', response);
-                }
-              );
+              const response = await sendMessageToBackground({ 
+                action: 'commentClicked', 
+                commentText: commentText 
+              });
+              console.log('Response from background:', response);
             } catch (error) {
-              console.error('Failed to send message to background script:', error);
+              console.error('Error in comment click handler:', error);
+              if (!isExtensionReady) {
+                window.location.reload();
+              }
             }
           }
         });
@@ -177,7 +229,7 @@ function setupCommentListeners() {
   
   observer.observe(document.body, { childList: true, subtree: true });
   
-  document.addEventListener('click', function(event) {
+  document.addEventListener('click', async function(event) {
     const commentContainers = [
       '.docos-streamdocoview',
       '.docos-docoview-tesla-conflict',
@@ -201,18 +253,16 @@ function setupCommentListeners() {
         
         if (commentText) {
           try {
-            chrome.runtime.sendMessage(
-              { action: 'commentClicked', commentText: commentText },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error('Error sending message:', chrome.runtime.lastError);
-                  return;
-                }
-                console.log('Response from background:', response);
-              }
-            );
+            const response = await sendMessageToBackground({ 
+              action: 'commentClicked', 
+              commentText: commentText 
+            });
+            console.log('Response from background:', response);
           } catch (error) {
-            console.error('Failed to send message to background script:', error);
+            console.error('Error in comment click delegation:', error);
+            if (!isExtensionReady) {
+              window.location.reload();
+            }
           }
         }
         break;
@@ -269,10 +319,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'focusOnComment') {
       const success = findAndFocusComment(message.commentText);
       sendResponse({ success });
+    } else if (message.action === 'settingsChanged') {
+      console.log('Received settings changed notification:', message.message);
+      // Show a notification to the user
+      const notification = document.createElement('div');
+      notification.textContent = 'Extension settings updated. Some features may require page reload.';
+      notification.style.position = 'fixed';
+      notification.style.top = '0';
+      notification.style.left = '0';
+      notification.style.right = '0';
+      notification.style.backgroundColor = '#4285f4';
+      notification.style.color = 'white';
+      notification.style.padding = '10px';
+      notification.style.textAlign = 'center';
+      notification.style.zIndex = '9999';
+      document.body.appendChild(notification);
+      
+      // Add a reload button
+      const reloadButton = document.createElement('button');
+      reloadButton.textContent = 'Reload Now';
+      reloadButton.style.marginLeft = '10px';
+      reloadButton.style.padding = '5px 10px';
+      reloadButton.style.backgroundColor = 'white';
+      reloadButton.style.color = '#4285f4';
+      reloadButton.style.border = 'none';
+      reloadButton.style.borderRadius = '4px';
+      reloadButton.style.cursor = 'pointer';
+      reloadButton.addEventListener('click', () => {
+        window.location.reload();
+      });
+      notification.appendChild(reloadButton);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 15000);
+      
+      sendResponse({ received: true });
     }
     return true; // Required for async sendResponse
   } catch (error) {
     console.error('Error handling message:', error);
+    // If we get an extension context error, set the flag
+    if (error.message && (
+        error.message.includes('Extension context invalidated') || 
+        error.message.includes('Extension context was invalidated'))) {
+      isExtensionReady = false;
+    }
     sendResponse({ success: false, error: error.message });
     return true;
   }

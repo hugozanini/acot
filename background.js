@@ -337,3 +337,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   return true; // Required for async sendResponse
 });
+
+// Add this event listener to handle settings updates
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    if (changes.configVerified || changes.geminiApiKey || changes.apiProvider || 
+        changes.ollamaEndpoint || changes.geminiModel || changes.openaiModel) {
+      console.log('Extension settings changed, notifying content scripts');
+      try {
+        chrome.tabs.query({ url: "https://docs.google.com/document/*" }, (tabs) => {
+          tabs.forEach(tab => {
+            try {
+              chrome.tabs.sendMessage(tab.id, { 
+                action: 'settingsChanged',
+                message: 'Extension settings have been updated.'
+              });
+            } catch (err) {
+              console.error('Error sending settings changed message to tab:', err);
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Error notifying content scripts:', err);
+      }
+    }
+  }
+});
