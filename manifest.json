@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "ACOT",
+  "version": "1.0.0",
+  "description": "AI Comments Tool for summarizing Google Docs comment threads with Gemini or Ollama",
+  "icons": {
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+  },
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://docs.google.com/document/*",
+    "https://generativelanguage.googleapis.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://docs.google.com/document/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}
