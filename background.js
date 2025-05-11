@@ -10,6 +10,15 @@ const animatedIcons = {
   '128': 'icons/icon128.png'
 };
 
+// Initialize the side panel
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Chrome started, initializing ACOT side panel');
+  chrome.sidePanel.setOptions({
+    path: 'sidepanel.html',
+    enabled: true
+  });
+});
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('ACOT Extension installed');
   
@@ -274,46 +283,96 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   }
 });
 
-// Modify this part to avoid the icon animation issue
+// Modify this part to handle Google Docs page navigation better
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url && tab.url.includes('docs.google.com/document')) {
-    // Temporarily disable icon animation to avoid errors
-    console.log('Google Docs page loaded, but not changing icon to avoid errors');
-    // Don't attempt to change the icon for now
-    /*
-    chrome.action.setIcon({
-      tabId: tabId,
-      path: animatedIcons
-    });
-    */
+  if (changeInfo.status === 'complete' && tab.url) {
+    // Ensure the side panel is always available
+    try {
+      chrome.sidePanel.setOptions({ 
+        tabId: tabId,
+        enabled: true 
+      });
+    } catch (err) {
+      console.error('Error enabling side panel on tab update:', err);
+    }
+    
+    // Handle Google Docs pages specifically
+    if (tab.url.includes('docs.google.com/document')) {
+      console.log('Google Docs page loaded');
+      
+      // Temporarily disable icon animation to avoid errors
+      // Don't attempt to change the icon for now
+      /*
+      chrome.action.setIcon({
+        tabId: tabId,
+        path: animatedIcons
+      });
+      */
+    }
   }
 });
 
-// Modify this part to be more defensive with action handling
+// Modify this part to handle clicks properly
 if (chrome.action) {
   chrome.action.onClicked.addListener((tab) => {
-    if (tab && tab.url && tab.url.includes('docs.google.com/document')) {
+    try {
+      // Try to open the side panel regardless of the current page
+      console.log('Extension icon clicked, opening side panel');
+      chrome.sidePanel.open({ tabId: tab.id }).catch(err => {
+        console.error('Error opening side panel:', err);
+        
+        // If direct opening fails, try another approach
+        try {
+          chrome.sidePanel.setOptions({ tabId: tab.id, enabled: true });
+          setTimeout(() => {
+            chrome.sidePanel.open({ tabId: tab.id }).catch(innerErr => {
+              console.error('Second attempt to open side panel failed:', innerErr);
+            });
+          }, 100);
+        } catch (err2) {
+          console.error('Error setting side panel options:', err2);
+        }
+      });
+    } catch (err) {
+      console.error('Error with side panel operation:', err);
+      
+      // Fallback for some Chrome versions
       try {
-        chrome.sidePanel.open({ tabId: tab.id }).catch(err => {
-          console.error('Error opening side panel:', err);
-        });
-      } catch (err) {
-        console.error('Error with side panel operation:', err);
+        chrome.sidePanel.setOptions({ tabId: tab.id, enabled: true });
+      } catch (fallbackErr) {
+        console.error('Fallback side panel operation failed:', fallbackErr);
       }
-    } else {
-      console.log('Tab not supported for side panel');
     }
   });
 } else if (chrome.browserAction) {
   // Legacy support
   chrome.browserAction.onClicked.addListener((tab) => {
-    if (tab && tab.url && tab.url.includes('docs.google.com/document')) {
+    try {
+      // Try to open the side panel regardless of the current page
+      console.log('Extension icon clicked, opening side panel (legacy)');
+      chrome.sidePanel.open({ tabId: tab.id }).catch(err => {
+        console.error('Error opening side panel:', err);
+        
+        // If direct opening fails, try another approach
+        try {
+          chrome.sidePanel.setOptions({ tabId: tab.id, enabled: true });
+          setTimeout(() => {
+            chrome.sidePanel.open({ tabId: tab.id }).catch(innerErr => {
+              console.error('Second attempt to open side panel failed:', innerErr);
+            });
+          }, 100);
+        } catch (err2) {
+          console.error('Error setting side panel options:', err2);
+        }
+      });
+    } catch (err) {
+      console.error('Error with side panel operation:', err);
+      
+      // Fallback for some Chrome versions
       try {
-        chrome.sidePanel.open({ tabId: tab.id }).catch(err => {
-          console.error('Error opening side panel:', err);
-        });
-      } catch (err) {
-        console.error('Error with side panel operation:', err);
+        chrome.sidePanel.setOptions({ tabId: tab.id, enabled: true });
+      } catch (fallbackErr) {
+        console.error('Fallback side panel operation failed:', fallbackErr);
       }
     }
   });
