@@ -145,12 +145,20 @@ function attachEventListenersToComments() {
           console.log('Comment clicked through direct listener:', commentText);
           
           if (commentText) {
-            chrome.runtime.sendMessage(
-              { action: 'commentClicked', commentText: commentText },
-              (response) => {
-                console.log('Response from background:', response);
-              }
-            );
+            try {
+              chrome.runtime.sendMessage(
+                { action: 'commentClicked', commentText: commentText },
+                (response) => {
+                  if (chrome.runtime.lastError) {
+                    console.error('Error sending message:', chrome.runtime.lastError);
+                    return;
+                  }
+                  console.log('Response from background:', response);
+                }
+              );
+            } catch (error) {
+              console.error('Failed to send message to background script:', error);
+            }
           }
         });
       }
@@ -192,18 +200,83 @@ function setupCommentListeners() {
         console.log('Extracted comment text:', commentText);
         
         if (commentText) {
-          chrome.runtime.sendMessage(
-            { action: 'commentClicked', commentText: commentText },
-            (response) => {
-              console.log('Response from background:', response);
-            }
-          );
+          try {
+            chrome.runtime.sendMessage(
+              { action: 'commentClicked', commentText: commentText },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error('Error sending message:', chrome.runtime.lastError);
+                  return;
+                }
+                console.log('Response from background:', response);
+              }
+            );
+          } catch (error) {
+            console.error('Failed to send message to background script:', error);
+          }
         }
         break;
       }
     }
   });
 }
+
+function findAndFocusComment(commentText) {
+  console.log('Attempting to find and focus on comment:', commentText);
+  
+  const commentSelectors = [
+    '.docos-streamdocoview',
+    '.docos-docoview-tesla-conflict',
+    '.docos-anchoreddocoview',
+    '[id^="docos-docoview-"]',
+    '.docos-docoview',
+    '.docos-wackomsupport-commentview',
+    '.comment-container',
+    '.comment-bubble',
+    '.goog-inline-block.kix-commentflag',
+    '.docos-anchoredreplyview',
+    '.docos-replyview'
+  ];
+  
+  for (const selector of commentSelectors) {
+    const comments = document.querySelectorAll(selector);
+    
+    for (const comment of comments) {
+      const extractedText = extractCommentText(comment);
+      
+      if (extractedText && extractedText.includes(commentText.substring(0, 50))) {
+        console.log('Found matching comment, focusing on it');
+        comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        const originalBackground = comment.style.backgroundColor;
+        comment.style.backgroundColor = 'rgba(66, 133, 244, 0.2)';
+        
+        setTimeout(() => {
+          comment.style.backgroundColor = originalBackground;
+        }, 2000);
+        
+        return true;
+      }
+    }
+  }
+  
+  console.log('Could not find matching comment');
+  return false;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  try {
+    if (message.action === 'focusOnComment') {
+      const success = findAndFocusComment(message.commentText);
+      sendResponse({ success });
+    }
+    return true; // Required for async sendResponse
+  } catch (error) {
+    console.error('Error handling message:', error);
+    sendResponse({ success: false, error: error.message });
+    return true;
+  }
+});
 
 window.addEventListener('load', () => {
   console.log('Page loaded, setting up ACOT');

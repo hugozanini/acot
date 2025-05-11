@@ -1,5 +1,4 @@
 
-
 console.log('ACOT Side Panel loaded');
 
 const apiConfigSection = document.getElementById('apiConfigSection');
@@ -24,18 +23,50 @@ const promptTemplateSection = document.getElementById('promptTemplateSection');
 const promptTemplateInput = document.getElementById('promptTemplateInput');
 const savePromptButton = document.getElementById('savePromptButton');
 const promptStatusMessage = document.getElementById('promptStatusMessage');
+const acotLogo = document.getElementById('acotLogo');
+const mainTabs = document.getElementById('mainTabs');
 
 const DEFAULT_PROMPT = 'Summarize this Google Docs comment concisely, focusing on the main point or question:';
 
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   setupMessageListener();
-  setupSettingsToggle();
+  setupTabNavigation();
   setupProviderSelection();
   setupTestButtons();
   setupSaveButtons();
   checkConfiguration();
 });
+
+function setupTabNavigation() {
+  const tabButtons = mainTabs.querySelectorAll('.tab-button');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+      
+      button.classList.add('active');
+      const tabId = button.getAttribute('data-tab');
+      document.getElementById(tabId).classList.add('active');
+      
+      chrome.storage.local.set({ activeTab: tabId });
+    });
+  });
+  
+  chrome.storage.local.get(['activeTab', 'configVerified'], (result) => {
+    if (result.activeTab) {
+      const tabButton = document.querySelector(`.tab-button[data-tab="${result.activeTab}"]`);
+      if (tabButton) {
+        tabButton.click();
+      }
+    } else if (result.configVerified) {
+      document.querySelector('.tab-button[data-tab="summary"]').click();
+    } else {
+      document.querySelector('.tab-button[data-tab="settings"]').click();
+    }
+  });
+}
 
 function loadSettings() {
   chrome.storage.local.get([
@@ -106,13 +137,10 @@ function setupProviderSelection() {
 function checkConfiguration() {
   chrome.storage.local.get(['apiProvider', 'geminiApiKey', 'geminiModel', 'ollamaEndpoint', 'configVerified'], (result) => {
     if (result.configVerified) {
-      apiConfigSection.style.display = 'none';
-      summarySection.style.display = 'block';
-      return;
+      document.querySelector('.tab-button[data-tab="summary"]').click();
+    } else {
+      document.querySelector('.tab-button[data-tab="settings"]').click();
     }
-    
-    apiConfigSection.style.display = 'block';
-    summarySection.style.display = 'none';
     
     if (result.geminiApiKey) {
       apiKeyInput.value = result.geminiApiKey;
@@ -133,11 +161,12 @@ function setupTestButtons() {
     const apiKey = apiKeyInput.value.trim();
     
     if (!apiKey) {
-      showStatus(geminiStatusMessage, 'Please enter an API Key', 'error');
+      showStatus(geminiStatusMessage, 'Please enter an API Key', 'status-error');
       return;
     }
     
     showStatus(geminiStatusMessage, 'Testing connection...', '');
+    startLogoAnimation();
     testGeminiConnection(apiKey);
   });
   
@@ -145,11 +174,12 @@ function setupTestButtons() {
     const endpoint = ollamaEndpointInput.value.trim();
     
     if (!endpoint) {
-      showStatus(ollamaStatusMessage, 'Please enter an endpoint URL', 'error');
+      showStatus(ollamaStatusMessage, 'Please enter an endpoint URL', 'status-error');
       return;
     }
     
     showStatus(ollamaStatusMessage, 'Testing connection...', '');
+    startLogoAnimation();
     testOllamaConnection(endpoint);
   });
 }
@@ -165,7 +195,8 @@ function testGeminiConnection(apiKey) {
       return response.json();
     })
     .then(data => {
-      showStatus(geminiStatusMessage, 'Connection successful!', 'success');
+      stopLogoAnimation();
+      showStatus(geminiStatusMessage, 'Connection successful!', 'status-success');
       
       chrome.storage.local.set({ 
         geminiApiKey: apiKey,
@@ -189,8 +220,9 @@ function testGeminiConnection(apiKey) {
       }
     })
     .catch(error => {
+      stopLogoAnimation();
       console.error('Error testing Gemini API:', error);
-      showStatus(geminiStatusMessage, `Connection failed: ${error.message}`, 'error');
+      showStatus(geminiStatusMessage, `Connection failed: ${error.message}`, 'status-error');
     });
 }
 
@@ -258,6 +290,7 @@ function testOllamaConnection(endpoint) {
       }
     })
     .then(data => {
+      stopLogoAnimation();
       console.log('API response:', data);
       
       console.log('API response data:', data);
@@ -267,15 +300,14 @@ function testOllamaConnection(endpoint) {
         data.response;
       
       if (isSuccess) {
-        showStatus(ollamaStatusMessage, 'Connection successful!', 'success');
+        showStatus(ollamaStatusMessage, 'Connection successful!', 'status-success');
         
         chrome.storage.local.set({ 
           ollamaEndpoint: endpoint,
           apiProvider: 'ollama',
           configVerified: true
         }, () => {
-          apiConfigSection.style.display = 'none';
-          summarySection.style.display = 'block';
+          document.querySelector('.tab-button[data-tab="summary"]').click();
         });
       } else {
         console.error('Unexpected API response format:', data);
@@ -283,8 +315,9 @@ function testOllamaConnection(endpoint) {
       }
     })
     .catch(error => {
+      stopLogoAnimation();
       console.error('Error testing Ollama API:', error);
-      showStatus(ollamaStatusMessage, `Connection failed: ${error.message}`, 'error');
+      showStatus(ollamaStatusMessage, `Connection failed: ${error.message}`, 'status-error');
     });
 }
 
@@ -294,14 +327,16 @@ function setupSaveButtons() {
     const selectedModel = modelSelect.value;
     
     if (!apiKey) {
-      showStatus(geminiStatusMessage, 'Please enter an API Key', 'error');
+      showStatus(geminiStatusMessage, 'Please enter an API Key', 'status-error');
       return;
     }
     
     if (!selectedModel) {
-      showStatus(geminiStatusMessage, 'Please select a model', 'error');
+      showStatus(geminiStatusMessage, 'Please select a model', 'status-error');
       return;
     }
+    
+    startLogoAnimation();
     
     chrome.storage.local.set({ 
       geminiApiKey: apiKey,
@@ -309,10 +344,10 @@ function setupSaveButtons() {
       apiProvider: 'gemini',
       configVerified: true
     }, () => {
-      showStatus(geminiStatusMessage, 'Configuration saved!', 'success');
+      stopLogoAnimation();
+      showStatus(geminiStatusMessage, 'Configuration saved!', 'status-success');
       
-      apiConfigSection.style.display = 'none';
-      summarySection.style.display = 'block';
+      document.querySelector('.tab-button[data-tab="summary"]').click();
     });
   });
   
@@ -320,14 +355,17 @@ function setupSaveButtons() {
     const endpoint = ollamaEndpointInput.value.trim();
     
     if (!endpoint) {
-      showStatus(ollamaStatusMessage, 'Please enter an endpoint URL', 'error');
+      showStatus(ollamaStatusMessage, 'Please enter an endpoint URL', 'status-error');
       return;
     }
+    
+    startLogoAnimation();
     
     if (endpoint.endsWith('/v1')) {
       const modelName = openaiModelInput.value.trim();
       if (!modelName) {
-        showStatus(ollamaStatusMessage, 'Please enter a model name for OpenAI-compatible endpoint', 'error');
+        stopLogoAnimation();
+        showStatus(ollamaStatusMessage, 'Please enter a model name for OpenAI-compatible endpoint', 'status-error');
         return;
       }
       
@@ -337,7 +375,7 @@ function setupSaveButtons() {
         apiProvider: 'ollama',
         configVerified: true
       }, () => {
-        showStatus(ollamaStatusMessage, 'Configuration saved!', 'success');
+        showStatus(ollamaStatusMessage, 'Configuration saved!', 'status-success');
         testOllamaConnection(endpoint);
       });
     } else {
@@ -350,12 +388,15 @@ savePromptButton.addEventListener('click', () => {
   const promptTemplate = promptTemplateInput.value.trim();
   
   if (!promptTemplate) {
-    showStatus(promptStatusMessage, 'Please enter a prompt template', 'error');
+    showStatus(promptStatusMessage, 'Please enter a prompt template', 'status-error');
     return;
   }
   
+  startLogoAnimation();
+  
   chrome.storage.local.set({ promptTemplate: promptTemplate }, () => {
-    showStatus(promptStatusMessage, 'Prompt template saved successfully', 'success');
+    stopLogoAnimation();
+    showStatus(promptStatusMessage, 'Prompt template saved successfully', 'status-success');
   });
 });
 
@@ -373,37 +414,22 @@ function showStatus(element, message, type) {
   }, 3000);
 }
 
-function setupSettingsToggle() {
-  settingsIcon.addEventListener('click', () => {
-    const isApiConfigVisible = apiConfigSection.style.display === 'block';
-    const isPromptSectionVisible = promptTemplateSection.style.display === 'block';
-    
-    if (isApiConfigVisible && isPromptSectionVisible) {
-      apiConfigSection.style.display = 'none';
-      promptTemplateSection.style.display = 'none';
-      
-      chrome.storage.local.get(['configVerified'], (result) => {
-        if (result.configVerified) {
-          summarySection.style.display = 'block';
-        }
-      });
-    } else {
-      apiConfigSection.style.display = 'block';
-      promptTemplateSection.style.display = 'block';
-      summarySection.style.display = 'none';
-    }
-  });
+function startLogoAnimation() {
+  if (acotLogo) {
+    acotLogo.classList.add('loading');
+  }
+}
+
+function stopLogoAnimation() {
+  if (acotLogo) {
+    acotLogo.classList.remove('loading');
+  }
 }
 
 function displaySummary(summary, originalComment) {
   const summaryHTML = `
     <div class="summary-container">
-      <div class="original-comment">
-        <strong>Original Comment Thread:</strong>
-        <pre>${escapeHTML(originalComment)}</pre>
-      </div>
       <div class="summary-result">
-        <strong>Summary:</strong>
         <p>${escapeHTML(summary)}</p>
       </div>
     </div>
@@ -411,6 +437,27 @@ function displaySummary(summary, originalComment) {
   
   summaryContent.innerHTML = summaryHTML;
   summaryContent.className = '';
+  
+  const summaryTitle = document.getElementById('summaryTitle');
+  if (summaryTitle) {
+    summaryTitle.classList.add('clickable-title');
+    summaryTitle.title = "Click to view original comment thread";
+    
+    const newTitle = summaryTitle.cloneNode(true);
+    summaryTitle.parentNode.replaceChild(newTitle, summaryTitle);
+    
+    newTitle.addEventListener('click', (event) => {
+      event.preventDefault();
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+          chrome.tabs.sendMessage(tabs[0].id, { 
+            action: 'focusOnComment',
+            commentText: originalComment
+          });
+        }
+      });
+    });
+  }
 }
 
 function displayError(errorMessage) {
@@ -435,12 +482,24 @@ function escapeHTML(str) {
 function setupMessageListener() {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'processingComment') {
-      summaryContent.textContent = 'Generating summary...';
+      document.querySelector('.tab-button[data-tab="summary"]').click();
+      
+      startLogoAnimation();
+      
+      summaryContent.innerHTML = `
+        <div class="loading-indicator">
+          <div class="spinner"></div>
+          <p>Generating summary...</p>
+        </div>
+      `;
       summaryContent.className = 'loading';
+      
       sendResponse({status: 'processing state updated'});
     }
     
     else if (message.action === 'summaryResult') {
+      stopLogoAnimation();
+      
       if (message.success) {
         displaySummary(message.summary, message.originalComment);
       } else {

@@ -1,12 +1,26 @@
 
 
+const originalIcons = {
+  '16': 'icons/icon16.svg',
+  '48': 'icons/icon48.svg',
+  '128': 'icons/icon128.svg'
+};
+
+const animatedIcons = {
+  '16': 'icons/animated-icon16.svg',
+  '48': 'icons/animated-icon48.svg',
+  '128': 'icons/animated-icon128.svg'
+};
+
 chrome.runtime.onInstalled.addListener(() => {
+  console.log('ACOT Extension installed');
+  
   chrome.sidePanel.setOptions({
     path: 'sidepanel.html',
     enabled: true
   });
   
-  chrome.storage.local.get(['promptTemplate', 'configVerified'], (result) => {
+  chrome.storage.local.get(['promptTemplate', 'configVerified', 'sidePanelOpenedTabs'], (result) => {
     if (!result.promptTemplate) {
       chrome.storage.local.set({
         promptTemplate: 'Summarize this Google Docs comment concisely, focusing on the main point or question:'
@@ -15,6 +29,10 @@ chrome.runtime.onInstalled.addListener(() => {
     
     if (result.configVerified === undefined) {
       chrome.storage.local.set({ configVerified: false });
+    }
+    
+    if (!result.sidePanelOpenedTabs) {
+      chrome.storage.local.set({ sidePanelOpenedTabs: {} });
     }
   });
 });
@@ -214,6 +232,38 @@ async function summarizeWithOllama(endpoint, commentText, promptTemplate) {
       error: error.message || 'Unknown error occurred'
     };
   }
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && tab.url.includes('docs.google.com/document')) {
+    if (chrome.action && chrome.action.setIcon) {
+      chrome.action.setIcon({
+        tabId: tabId,
+        path: animatedIcons
+      });
+      
+      setTimeout(() => {
+        chrome.action.setIcon({
+          tabId: tabId,
+          path: originalIcons
+        });
+      }, 5000);
+    }
+  }
+});
+
+if (chrome.action) {
+  chrome.action.onClicked.addListener((tab) => {
+    if (tab.url && tab.url.includes('docs.google.com/document')) {
+      chrome.sidePanel.open({ tabId: tab.id });
+    }
+  });
+} else if (chrome.browserAction) {
+  chrome.browserAction.onClicked.addListener((tab) => {
+    if (tab.url && tab.url.includes('docs.google.com/document')) {
+      chrome.sidePanel.open({ tabId: tab.id });
+    }
+  });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
