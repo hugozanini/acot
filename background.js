@@ -238,22 +238,38 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     if (changes.configVerified || changes.geminiApiKey || changes.apiProvider || 
         changes.ollamaEndpoint || changes.geminiModel || changes.openaiModel) {
       console.log('Extension settings changed, notifying content scripts');
-      try {
-        chrome.tabs.query({ url: "https://docs.google.com/document/*" }, (tabs) => {
-          tabs.forEach(tab => {
-            try {
-              chrome.tabs.sendMessage(tab.id, { 
+      
+      // Use a more careful approach to sending messages
+      chrome.tabs.query({ url: "https://docs.google.com/document/*" }, (tabs) => {
+        if (!tabs || tabs.length === 0) {
+          console.log('No Google Docs tabs open to notify');
+          return;
+        }
+        
+        tabs.forEach(tab => {
+          // Send message with error handling
+          try {
+            chrome.tabs.sendMessage(
+              tab.id, 
+              { 
                 action: 'settingsChanged',
                 message: 'Extension settings have been updated.'
-              });
-            } catch (err) {
-              console.error('Error sending settings changed message to tab:', err);
-            }
-          });
+              },
+              // Add response callback to catch errors
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  // This is normal if the content script isn't ready yet
+                  console.log(`Tab notification skipped: ${chrome.runtime.lastError.message}`);
+                  return;
+                }
+                console.log('Tab notification sent successfully:', response);
+              }
+            );
+          } catch (err) {
+            console.error('Error in sending settings notification:', err);
+          }
         });
-      } catch (err) {
-        console.error('Error notifying content scripts:', err);
-      }
+      });
     }
   }
 });
@@ -273,90 +289,146 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+// Modify this part to be more defensive with action handling
 if (chrome.action) {
   chrome.action.onClicked.addListener((tab) => {
-    if (tab.url && tab.url.includes('docs.google.com/document')) {
-      chrome.sidePanel.open({ tabId: tab.id });
+    if (tab && tab.url && tab.url.includes('docs.google.com/document')) {
+      try {
+        chrome.sidePanel.open({ tabId: tab.id }).catch(err => {
+          console.error('Error opening side panel:', err);
+        });
+      } catch (err) {
+        console.error('Error with side panel operation:', err);
+      }
+    } else {
+      console.log('Tab not supported for side panel');
     }
   });
 } else if (chrome.browserAction) {
+  // Legacy support
   chrome.browserAction.onClicked.addListener((tab) => {
-    if (tab.url && tab.url.includes('docs.google.com/document')) {
-      chrome.sidePanel.open({ tabId: tab.id });
+    if (tab && tab.url && tab.url.includes('docs.google.com/document')) {
+      try {
+        chrome.sidePanel.open({ tabId: tab.id }).catch(err => {
+          console.error('Error opening side panel:', err);
+        });
+      } catch (err) {
+        console.error('Error with side panel operation:', err);
+      }
     }
   });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Always check if the message and action exist
+  if (!message || !message.action) {
+    console.warn('Received message with no action');
+    sendResponse({status: 'error', message: 'No action specified'});
+    return true;
+  }
+
   if (message.action === 'commentClicked') {
     console.log('Background received comment text:', message.commentText);
     
-    chrome.runtime.sendMessage({
-      action: 'processingComment',
-      commentText: message.commentText
-    });
+    // Use a safer approach to sending messages
+    try {
+      chrome.runtime.sendMessage({
+        action: 'processingComment',
+        commentText: message.commentText
+      }, response => {
+        if (chrome.runtime.lastError) {
+          console.log('Error sending processing message:', chrome.runtime.lastError);
+          // Continue with processing anyway
+        }
+      });
+    } catch (err) {
+      console.error('Error sending processing message:', err);
+      // Continue with processing anyway
+    }
     
     (async () => {
-      const config = await getApiConfig();
-      
-      const { configVerified } = await new Promise(resolve => {
-        chrome.storage.local.get(['configVerified'], resolve);
-      });
-      
-      if (!configVerified) {
-        chrome.runtime.sendMessage({
+      try {
+        const config = await getApiConfig();
+        
+        const { configVerified } = await new Promise(resolve => {
+          chrome.storage.local.get(['configVerified'], resolve);
+        });
+        
+        if (!configVerified) {
+          sendMessageSafely({
+            action: 'summaryResult',
+            success: false,
+            error: 'API not configured. Please configure your API settings first.'
+          });
+          return;
+        }
+        
+        const { promptTemplate } = await new Promise(resolve => {
+          chrome.storage.local.get(['promptTemplate'], resolve);
+        });
+        
+        let summaryResult;
+        
+        if (config.provider === 'gemini') {
+          if (!config.geminiApiKey) {
+            sendMessageSafely({
+              action: 'summaryResult',
+              success: false,
+              error: 'No Gemini API key found. Please configure your API settings.'
+            });
+            return;
+          }
+          summaryResult = await summarizeWithGemini(
+            config.geminiApiKey, 
+            message.commentText,
+            promptTemplate,
+            config.geminiModel
+          );
+        } else if (config.provider === 'ollama') {
+          if (!config.ollamaEndpoint) {
+            sendMessageSafely({
+              action: 'summaryResult',
+              success: false,
+              error: 'Ollama configuration incomplete. Please configure your API settings.'
+            });
+            return;
+          }
+          summaryResult = await summarizeWithOllama(
+            config.ollamaEndpoint,
+            message.commentText,
+            promptTemplate
+          );
+        }
+        
+        sendMessageSafely({
+          action: 'summaryResult',
+          ...summaryResult,
+          originalComment: message.commentText
+        });
+      } catch (error) {
+        console.error('Error processing comment:', error);
+        sendMessageSafely({
           action: 'summaryResult',
           success: false,
-          error: 'API not configured. Please configure your API settings first.'
+          error: error.message || 'An unknown error occurred'
         });
-        return;
       }
-      
-      const { promptTemplate } = await new Promise(resolve => {
-        chrome.storage.local.get(['promptTemplate'], resolve);
-      });
-      
-      let summaryResult;
-      
-      if (config.provider === 'gemini') {
-        if (!config.geminiApiKey) {
-          chrome.runtime.sendMessage({
-            action: 'summaryResult',
-            success: false,
-            error: 'No Gemini API key found. Please configure your API settings.'
-          });
-          return;
-        }
-        summaryResult = await summarizeWithGemini(
-          config.geminiApiKey, 
-          message.commentText,
-          promptTemplate,
-          config.geminiModel
-        );
-      } else if (config.provider === 'ollama') {
-        if (!config.ollamaEndpoint) {
-          chrome.runtime.sendMessage({
-            action: 'summaryResult',
-            success: false,
-            error: 'Ollama configuration incomplete. Please configure your API settings.'
-          });
-          return;
-        }
-        summaryResult = await summarizeWithOllama(
-          config.ollamaEndpoint,
-          message.commentText,
-          promptTemplate
-        );
-      }
-      
-      chrome.runtime.sendMessage({
-        action: 'summaryResult',
-        ...summaryResult,
-        originalComment: message.commentText
-      });
     })();
     
     sendResponse({status: 'received and processing'});
   }
   return true; // Required for async sendResponse
 });
+
+// Helper function to safely send messages
+function sendMessageSafely(message) {
+  try {
+    chrome.runtime.sendMessage(message, response => {
+      if (chrome.runtime.lastError) {
+        console.log('Error sending message:', chrome.runtime.lastError);
+      }
+    });
+  } catch (err) {
+    console.error('Error sending message:', err);
+  }
+}
