@@ -327,6 +327,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Add a simple ping handler for initialization checking
+  if (message.action === 'ping') {
+    sendResponse({status: 'ready'});
+    return true;
+  }
+
   if (message.action === 'commentClicked') {
     console.log('Background received comment text:', message.commentText);
     

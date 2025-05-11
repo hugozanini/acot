@@ -1,9 +1,12 @@
 let isExtensionReady = true;
+let initializeRetryCount = 0;
+const MAX_RETRIES = 2;
+let isFirstCommentClick = true;
 
 function sendMessageToBackground(message) {
   return new Promise((resolve, reject) => {
-    if (!isExtensionReady) {
-      console.log('Extension not ready, reloading page...');
+    if (!isExtensionReady && initializeRetryCount >= MAX_RETRIES) {
+      console.log('Extension not ready and max retries exceeded, reloading page...');
       window.location.reload();
       reject(new Error('Extension not ready'));
       return;
@@ -16,39 +19,77 @@ function sendMessageToBackground(message) {
           
           if (chrome.runtime.lastError.message.includes('Extension context invalidated') || 
               chrome.runtime.lastError.message.includes('Extension context was invalidated')) {
-            isExtensionReady = false;
-            console.log('Extension context invalidated, will reload on next action');
             
-            const notification = document.createElement('div');
-            notification.textContent = 'Extension settings changed. Page will reload on next action.';
-            notification.style.position = 'fixed';
-            notification.style.top = '0';
-            notification.style.left = '0';
-            notification.style.right = '0';
-            notification.style.backgroundColor = '#4285f4';
-            notification.style.color = 'white';
-            notification.style.padding = '10px';
-            notification.style.textAlign = 'center';
-            notification.style.zIndex = '9999';
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-              notification.remove();
-            }, 5000);
-            
-            reject(chrome.runtime.lastError);
-            return;
+            if (isFirstCommentClick || initializeRetryCount < MAX_RETRIES) {
+              console.log('First attempt after configuration - will retry');
+              initializeRetryCount++;
+              isFirstCommentClick = false;
+              
+              const notification = document.createElement('div');
+              notification.textContent = 'Extension is initializing. Please try clicking the comment again.';
+              notification.style.position = 'fixed';
+              notification.style.top = '0';
+              notification.style.left = '0';
+              notification.style.right = '0';
+              notification.style.backgroundColor = '#4285f4';
+              notification.style.color = 'white';
+              notification.style.padding = '10px';
+              notification.style.textAlign = 'center';
+              notification.style.zIndex = '9999';
+              document.body.appendChild(notification);
+              
+              setTimeout(() => {
+                notification.remove();
+              }, 5000);
+              
+              reject(new Error('Extension initializing'));
+              return;
+            } else {
+              isExtensionReady = false;
+              console.log('Extension context invalidated, will reload on next action');
+              
+              const notification = document.createElement('div');
+              notification.textContent = 'Extension settings changed. Page will reload on next action.';
+              notification.style.position = 'fixed';
+              notification.style.top = '0';
+              notification.style.left = '0';
+              notification.style.right = '0';
+              notification.style.backgroundColor = '#4285f4';
+              notification.style.color = 'white';
+              notification.style.padding = '10px';
+              notification.style.textAlign = 'center';
+              notification.style.zIndex = '9999';
+              document.body.appendChild(notification);
+              
+              setTimeout(() => {
+                notification.remove();
+              }, 5000);
+              
+              reject(chrome.runtime.lastError);
+              return;
+            }
           }
           
           reject(chrome.runtime.lastError);
           return;
         }
+        
+        initializeRetryCount = 0;
+        isFirstCommentClick = false;
         resolve(response);
       });
     } catch (error) {
       console.error('Failed to send message:', error);
-      isExtensionReady = false;
-      reject(error);
+      
+      if (isFirstCommentClick || initializeRetryCount < MAX_RETRIES) {
+        console.log('First attempt after exception - will retry');
+        initializeRetryCount++;
+        isFirstCommentClick = false;
+        reject(new Error('Extension initializing'));
+      } else {
+        isExtensionReady = false;
+        reject(error);
+      }
     }
   });
 }
@@ -207,7 +248,19 @@ function attachEventListenersToComments() {
               console.log('Response from background:', response);
             } catch (error) {
               console.error('Error in comment click handler:', error);
-              if (!isExtensionReady) {
+              
+              // Show different messages based on error type
+              if (error.message === 'Extension initializing') {
+                // We don't need to do anything here as the notification is shown in sendMessageToBackground
+                console.log('Extension is initializing, waiting for retry');
+                
+                // Highlight the comment to indicate it was clicked
+                const originalBackground = comment.style.backgroundColor;
+                comment.style.backgroundColor = 'rgba(66, 133, 244, 0.3)';
+                setTimeout(() => {
+                  comment.style.backgroundColor = originalBackground;
+                }, 1000);
+              } else if (!isExtensionReady) {
                 window.location.reload();
               }
             }
@@ -260,7 +313,19 @@ function setupCommentListeners() {
             console.log('Response from background:', response);
           } catch (error) {
             console.error('Error in comment click delegation:', error);
-            if (!isExtensionReady) {
+            
+            // Show different messages based on error type
+            if (error.message === 'Extension initializing') {
+              // We don't need to do anything here as the notification is shown in sendMessageToBackground
+              console.log('Extension is initializing, waiting for retry');
+              
+              // Highlight the comment to indicate it was clicked
+              const originalBackground = container.style.backgroundColor;
+              container.style.backgroundColor = 'rgba(66, 133, 244, 0.3)';
+              setTimeout(() => {
+                container.style.backgroundColor = originalBackground;
+              }, 1000);
+            } else if (!isExtensionReady) {
               window.location.reload();
             }
           }
@@ -373,7 +438,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 window.addEventListener('load', () => {
   console.log('Page loaded, setting up ACOT');
   
+  // Check if the extension is ready
+  checkExtensionReady();
+  
   setTimeout(setupCommentListeners, 2000);
   
   setInterval(attachEventListenersToComments, 5000);
 });
+
+// Helper function to check if the extension is ready
+function checkExtensionReady() {
+  try {
+    chrome.runtime.sendMessage({ action: 'ping' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Extension not fully initialized on page load:', chrome.runtime.lastError);
+        isFirstCommentClick = true; // Set this to true to trigger the initialization flow
+        
+        // Try again in 2 seconds
+        setTimeout(checkExtensionReady, 2000);
+      } else {
+        console.log('Extension is ready on page load');
+        isFirstCommentClick = false; // Extension is fully initialized
+        initializeRetryCount = 0;
+      }
+    });
+  } catch (err) {
+    console.warn('Could not check extension ready state:', err);
+    isFirstCommentClick = true; // Assume we need initialization
+    
+    // Try again in 2 seconds
+    setTimeout(checkExtensionReady, 2000);
+  }
+}
