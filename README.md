@@ -16,7 +16,7 @@ ACOT is a Chrome extension that enhances productivity in Google Docs by using AI
 
 ![ACOT Comment Summary Example](media/acot-example2.png)
 
-## 📥 Installation
+## Installation
 
 1. Download the latest release [here](https://github.com/hugozanini/acot/releases/latest)
 2. Extract the ZIP file to a folder on your computer
@@ -25,7 +25,7 @@ ACOT is a Chrome extension that enhances productivity in Google Docs by using AI
 5. Click "Load unpacked" and select the extracted folder
 6. The ACOT icon should now appear in your Chrome toolbar
 
-## ⚙️ Setting Up Your Gemini API Key (Free)
+## ⚙Setting Up Your Gemini API Key (Free)
 
 Before using ACOT with Gemini, you'll need to get a free API key:
 
@@ -38,7 +38,7 @@ Before using ACOT with Gemini, you'll need to get a free API key:
 
 > **Note**: Google provides free usage of Gemini API (with limits). For most comment summarization needs, you'll likely stay within the free tier.
 
-## 🚀 Getting Started
+## Getting Started
 
 1. **Configure ACOT**:
    - Click the ACOT icon in your Chrome toolbar to open the side panel
@@ -55,7 +55,7 @@ Before using ACOT with Gemini, you'll need to get a free API key:
    - View the AI-generated summary in the ACOT side panel
    - For long comment threads, the summary will highlight key points and questions
 
-## 🔄 Alternative Setup: Local LLM
+## Alternative Setup: Local LLM
 
 If you prefer to use your own local Large Language Model:
 
@@ -65,12 +65,12 @@ If you prefer to use your own local Large Language Model:
 4. Enter the endpoint (typically `http://localhost:11434`)
 5. Test the connection and save
 
-## 🛠️ Development
+## Development
 
 1. Clone the repository: `git clone https://github.com/hugozanini/acot.git`
 2. Make your changes
 3. Load the unpacked extension in Chrome for testing
 
-## 📄 License
+## Acknowledgment
 
-MIT
+<img align="left" width="200" height="183" src="https://raw.githubusercontent.com/hugozanini/yolov7-tfjs/organizing-repo/git-media/Experts_Stickers_05.gif"> This project was developed during the Vertex sprints organized by [Google’s Developer Expert Program](https://developers.google.com/community/experts). Thanks, Google, for providing GCP and Colab credits for making this happen and the continuous support for the open-source AI community.
