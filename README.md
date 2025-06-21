@@ -73,4 +73,4 @@ If you prefer to use your own local Large Language Model:
 
 ## Acknowledgment
 
-<img align="left" width="200" height="183" src="https://raw.githubusercontent.com/hugozanini/yolov7-tfjs/organizing-repo/git-media/Experts_Stickers_05.gif"> This project was developed during the Vertex sprints organized by [Google’s Developer Expert Program](https://developers.google.com/community/experts). Thanks, Google, for providing GCP and Colab credits for making this happen and the continuous support for the open-source AI community.
+<img align="left" width="200" height="183" src="https://raw.githubusercontent.com/hugozanini/yolov7-tfjs/organizing-repo/git-media/Experts_Stickers_05.gif"> This project was developed during the AI sprints organized by [Google’s Developer Expert Program](https://developers.google.com/community/experts). Thanks, Google, for providing the computing credits for making this happen and the continuous support for the open-source AI community.
